@@ -1,0 +1,3 @@
+*.tar
+*.tar.gz
+gcloud_key.json

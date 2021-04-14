@@ -1,0 +1,39 @@
+# Copyright (c) 2021 NVIDIA Corporation. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# ==============================================================================
+
+
+FROM google/cloud-sdk
+
+ARG gcloud_key
+
+# Install dependencies
+RUN apt-get update && \
+    apt-get install -y python3-pip vim curl 
+
+RUN curl https://baltocdn.com/helm/signing.asc | apt-key add - && \
+    apt-get install apt-transport-https --yes && \
+    echo "deb https://baltocdn.com/helm/stable/debian/ all main" | tee /etc/apt/sources.list.d/helm-stable-debian.list && \
+    apt-get update && apt-get install helm
+
+RUN pip3 install kfp
+
+COPY $PWD/data-extraction/run_copy_merlin.sh /script/
+COPY $PWD/inference /script
+COPY $gcloud_key /script
+
+WORKDIR /script
+
+
+
