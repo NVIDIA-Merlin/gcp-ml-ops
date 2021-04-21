@@ -38,7 +38,7 @@ if [[ "$triton_status" == "Error: release: not found" ]]; then
     echo "Triton is not running. This is first deployment."
     echo "Preprocessing...."
     ls -al $PV_LOC/criteo-data/crit_int_pq
-    python3 -u $PV_LOC/script/preprocessing/nvt-train-preprocess.py -d $PV_LOC/criteo-data/crit_int_pq -o $PV_LOC/criteo-data/ -t 1 -v 1 -g 0
+    python3 -u $PV_LOC/script/preprocessing/nvt-preprocess.py -d $PV_LOC/criteo-data/crit_int_pq -o $PV_LOC/criteo-data/ -t 1 -v 1 -g 0
 
     echo "Training..."
     # python3 -u $PV_LOC/script/training/hugectr-train-criteo-dcn.py  -t $PV_LOC/criteo-data/test_dask/output/train/_file_list.txt -v $PV_LOC/criteo-data/test_dask/output/valid/_file_list.txt -i 600 -s 500 -g 0
