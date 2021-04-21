@@ -41,10 +41,12 @@ def merlin_pipeline(
   data_dir: 'GCSPath' = 'gs://criteo-data/dummy_data/*',
   local_data_dir: str = '/var/lib/data',
   project_id: str = 'dl-tme',
-  pipeline_name: str = 'merlin-pipeline'):
+  pipeline_name: str = 'merlin-pipeline',
+  new_data_collection: str = 'new_data'):
     
     global args, accelerator
 
+    gcs_path_head = data_dir.split("//")[1].split("/")[0]
     # Persistent volume variables
     persistent_volume_name = 'my-file-server'
     persistent_volume_claim_name = 'my-volume-claim'
@@ -55,18 +57,22 @@ def merlin_pipeline(
       name="data-extraction",
       image=args.data_extraction,
       # image='',
-      command=["bash" , "/script/run_copy_merlin.sh"],
-      arguments=[data_dir, local_data_dir, project_id]
+      # command=["bash" , "/script/run_copy_merlin.sh"],
+      # arguments=[data_dir, local_data_dir, project_id]
+      command=["sh", "-c"],
+      arguments=['echo $0; echo $1; echo "RUNNING"']
     )
 
     # Second component - Data validation
-    data_validation = dsl.ContainerOp(
-      name="validate-data",
-      image=args.validate_container,
-      # image='',
-      command=["bash" , "/script/run_validation.sh"],
-      arguments=[local_data_dir]
-    )
+    # data_validation = dsl.ContainerOp(
+    #   name="validate-data",
+    #   image=args.validate_container,
+    #   # image='',
+    #   # command=["bash" , "/script/run_validation.sh"],
+    #   # arguments=[local_data_dir]
+    #   command=["sh" , "-c"],
+    #   arguments=['echo $0; echo $1; echo "RUNNING"']
+    # )
 
     # Third component - Preprocess and Train
     preprocess_train = dsl.ContainerOp(
@@ -92,7 +98,7 @@ def merlin_pipeline(
       image=args.monitor_container,
       # image='',
       command=["bash" , "/script/run_monitoring.sh"],
-      arguments=[project_id, args.monitor_container]
+      arguments=[project_id, args.monitor_container, pipeline_name, gcs_path_head, new_data_collection, local_data_dir]
     )
 
 
@@ -102,10 +108,10 @@ def merlin_pipeline(
       claim_name=persistent_volume_claim_name))).add_volume_mount(k8s_client.V1VolumeMount(
       mount_path=persistent_volume_path,name=persistent_volume_name)).set_gpu_limit(1).add_node_selector_constraint('cloud.google.com/gke-accelerator', accelerator).add_node_selector_constraint('cloud.google.com/gke-nodepool', node_pool)
 
-    data_validation.add_volume(k8s_client.V1Volume(name=persistent_volume_name,
-      persistent_volume_claim=k8s_client.V1PersistentVolumeClaimVolumeSource(
-      claim_name=persistent_volume_claim_name))).add_volume_mount(k8s_client.V1VolumeMount(
-      mount_path=persistent_volume_path,name=persistent_volume_name)).add_node_selector_constraint('cloud.google.com/gke-nodepool', high_mem_node)
+    # data_validation.add_volume(k8s_client.V1Volume(name=persistent_volume_name,
+    #   persistent_volume_claim=k8s_client.V1PersistentVolumeClaimVolumeSource(
+    #   claim_name=persistent_volume_claim_name))).add_volume_mount(k8s_client.V1VolumeMount(
+    #   mount_path=persistent_volume_path,name=persistent_volume_name)).add_node_selector_constraint('cloud.google.com/gke-nodepool', high_mem_node)
 
     preprocess_train.add_volume(k8s_client.V1Volume(name=persistent_volume_name,
       persistent_volume_claim=k8s_client.V1PersistentVolumeClaimVolumeSource(
@@ -118,8 +124,8 @@ def merlin_pipeline(
       mount_path=persistent_volume_path,name=persistent_volume_name)).set_gpu_limit(1)
 
     # Sequencing the components
-    data_validation.after(copy_data)
-    preprocess_train.after(data_validation)
+    # data_validation.after(copy_data)
+    preprocess_train.after(copy_data)
     deploy_triton.after(preprocess_train)
     monitoring.after(deploy_triton)
 
@@ -130,7 +136,7 @@ if __name__ == '__main__':
   parser.add_argument("-vc",
                       "--validate_container",
                         type=str,
-                        required=True,
+                        required=False,
                         help="pass validate data container")
 
   parser.add_argument("-dex",
