@@ -37,10 +37,10 @@ spec:
           image: "{{ .Values.image.repository }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           command: ["/bin/sh","-c"]
-          args: ["bash run_monitoring_and_live_data.sh"]
+          args: ["bash run_monitoring_and_live_data.sh {{ .Values.project_id }} {{ .Values.gcs_bucket }} {{ .Values.bucket_path }} {{ .Values.local }} {{ .Values.pipeline }}"]
           volumeMounts:
           - name: "tmp-data-storage"
-            mountPath: /var/lib/data/
+            mountPath: {{ .Values.local }}
       volumes:
       - name: "tmp-data-storage"
         persistentVolumeClaim:
