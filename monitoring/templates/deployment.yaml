@@ -37,7 +37,7 @@ spec:
           image: "{{ .Values.image.repository }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           command: ["/bin/sh","-c"]
-          args: ["bash run_monitoring_and_live_data.sh {{ .Values.project_id }} {{ .Values.gcs_bucket }} {{ .Values.bucket_path }} {{ .Values.local }} {{ .Values.pipeline }}"]
+          args: ["bash run_monitoring_and_live_data.sh {{ .Values.project_id }} {{ .Values.gcs_bucket }} {{ .Values.bucket_path }} {{ .Values.local }} {{ .Values.pipeline }} {{ .Values.pubsub }}"]
           volumeMounts:
           - name: "tmp-data-storage"
             mountPath: {{ .Values.local }}
