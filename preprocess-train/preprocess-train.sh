@@ -38,23 +38,21 @@ if [[ "$triton_status" == "Error: release: not found" ]]; then
     echo "Triton is not running. This is first deployment."
     echo "Preprocessing...."
     ls -al $PV_LOC/criteo-data/crit_int_pq
-    # python3 -u $PV_LOC/script/preprocessing/nvt-preprocess.py -d $PV_LOC/criteo-data/crit_int_pq -o $PV_LOC/criteo-data/ -t 1 -v 1 -g 0
+    python3 -u $PV_LOC/script/preprocessing/nvt-preprocess.py -d $PV_LOC/criteo-data/crit_int_pq -o $PV_LOC/criteo-data/ -t 1 -v 1 -g 0
 
     echo "Training..."
-    # python3 -u $PV_LOC/script/training/hugectr-train-criteo-dcn.py  -t $PV_LOC/criteo-data/test_dask/output/train/_file_list.txt -v $PV_LOC/criteo-data/test_dask/output/valid/_file_list.txt -i 600 -s 500 -g 0
-    # python3 -u $PV_LOC/script/training/hugectr-train-criteo-dcn.py --input_train $PV_LOC/criteo-data/test_dask/output/train/_file_list.txt --input_val $PV_LOC/criteo-data/test_dask/output/valid/_file_list.txt --max_iter 600 --snapshot 500 --num_gpus 0
+    python3 -u $PV_LOC/script/training/hugectr-train-criteo-dcn.py --input_train $PV_LOC/criteo-data/test_dask/output/train/_file_list.txt --input_val $PV_LOC/criteo-data/test_dask/output/valid/_file_list.txt --max_iter 600 --snapshot 500 --num_gpus 0
 
-    # mkdir -p $PV_LOC/model/criteo_hugectr/1/
-    # mv $PV_LOC/*.model $dcn_files/dcn.json $PV_LOC/model/criteo_hugectr/1/
-    # mv $PV_LOC/*.model $PV_LOC/model/criteo_hugectr/1/
+    mkdir -p $PV_LOC/model/criteo_hugectr/1/
+    mv $PV_LOC/*.model $PV_LOC/model/criteo_hugectr/1/
 
-    # mkdir -p $PV_LOC/models/
+    mkdir -p $PV_LOC/models/
 
     echo "Create ensemble"
-    # python3 -u $PV_LOC/script/training/create-nvt-hugectr-ensemble.py --nvt_workflow_path $PV_LOC/criteo-data/test_dask/output/workflow/ --hugectr_model_path $PV_LOC/model/criteo_hugectr/1/ --ensemble_output_path $PV_LOC/models/  --ensemble_config $PV_LOC/script/training/ensemble-config.json
+    python3 -u $PV_LOC/script/training/create-nvt-hugectr-ensemble.py --nvt_workflow_path $PV_LOC/criteo-data/test_dask/output/workflow/ --hugectr_model_path $PV_LOC/model/criteo_hugectr/1/ --ensemble_output_path $PV_LOC/models/  --ensemble_config $PV_LOC/script/training/ensemble-config.json
 
     echo "Copy dcn.json"
-    # cp $PV_LOC/script/dcn_files/dcn.json $PV_LOC/models/dcn/1
+    cp $PV_LOC/script/dcn_files/dcn.json $PV_LOC/models/dcn/1
 
 else
     echo "Triton is running. This is triggered run. Running incremental pre-processing"
@@ -70,17 +68,13 @@ else
     new_version="$(($previous_version + 1))" 
 
     mkdir -p $PV_LOC/model/criteo_hugectr/$new_version/
-    # mv $PV_LOC/*.model $dcn_files/dcn.json $PV_LOC/model/criteo_hugectr/1/
+
     mv $PV_LOC/*.model $PV_LOC/model/criteo_hugectr/$new_version/
 
     mkdir -p $PV_LOC/models_recurrent_runs
 
     echo "Incremental Create ensemble"
     python3 -u $PV_LOC/script/training/create-nvt-hugectr-ensemble.py --nvt_workflow_path $PV_LOC/criteo-data/test_dask/output/workflow/ --hugectr_model_path $PV_LOC/model/criteo_hugectr/$new_version/ --ensemble_output_path $PV_LOC/models_recurrent_runs --ensemble_config $PV_LOC/script/training/ensemble-config.json
-
-    # mkdir $PV_LOC/models/dcn/$new_version
-    # mkdir $PV_LOC/models/dcn_ens/$new_version
-    # mkdir $PV_LOC/models/dcn_nvt/$new_version
 
     python3 -u $PV_LOC/script/dcn_files/format_dcn.py --model_version $new_version --dcn_path $PV_LOC/script/dcn_files/dcn.json
 
