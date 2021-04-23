@@ -93,7 +93,7 @@ def merlin_pipeline(
       image=args.monitor_container,
       command=["bash" , "/script/run_monitoring.sh"],
       arguments=[project_id, args.monitor_container, pipeline_name, gcs_bucket_head, new_data_collection, "{}{}{}".format(local_data_dir,"/",new_data_collection)]
-    ).add_node_selector_constraint('cloud.google.com/gke-accelerator', accelerator).add_node_selector_constraint('cloud.google.com/gke-nodepool', node_pool)
+    ).set_gpu_limit(1).add_node_selector_constraint('cloud.google.com/gke-accelerator', accelerator).add_node_selector_constraint('cloud.google.com/gke-nodepool', node_pool)
 
 
     # Adding PV, PVC, GPU constraints to the components
