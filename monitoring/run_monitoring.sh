@@ -20,7 +20,7 @@ DOCKER_IMG=${2:-"gcr.io/${PROJECT}/monitoring:0.4"}
 PIPELINE=${3:-"merlin-pipeline"}
 GCS_BUCKET=${4:-"criteo-data"}
 BUCKET_PATH=${5:-"new_data"}
-LOCAL=${6:-"/var/lib/data"}
+LOCAL=${6:-"/var/lib/data/new_data"}
 PUBSUB=${7:-"mlops-test-sub"}
 
 gcloud auth activate-service-account --key-file=/script/gcloud_key.json

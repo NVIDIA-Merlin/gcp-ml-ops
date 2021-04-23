@@ -17,7 +17,7 @@
 PROJECT_ID=${1:-"dl-tme"} # Google Cloud project ID
 GCS_BUCKET=${2:-"criteo-data"}
 BUCKET_PATH=${3:-"new_data"}
-LOCAL=${4:-"/var/lib/data/"}
+LOCAL=${4:-"/var/lib/data/new_data"}
 PIPELINE=${5:-"merlin-pipeline"}
 PUBSUB=${6:-"mlops-test-sub"}
 

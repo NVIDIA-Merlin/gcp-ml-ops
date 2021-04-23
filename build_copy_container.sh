@@ -24,7 +24,7 @@ image_tag=0.4
 
 full_image_name=${image_name}:${image_tag}
 
-docker build --build-arg gcloud_key=$GCLOUD_KEY --no-cache -f Dockerfile.copy -t $full_image_name  .
+docker build --build-arg gcloud_key=$GCLOUD_KEY -f Dockerfile.copy -t $full_image_name  .
 
 printf "\n\nPushing the container on GCR..."
 docker push $full_image_name

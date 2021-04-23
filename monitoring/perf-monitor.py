@@ -69,14 +69,16 @@ def get_pipeline_info(input_name, client):
         for prun in pipeline_runs:
             if prun.status == 'Running':
                 return None
+
+    # if prun.status == 'Succeeded':
+    tmp = { 'pipelineID': prun.resource_references[1].key.id,
+            'experimentID': prun.resource_references[0].key.id,
+            'status': prun.status,
+            'new_run_name': 'triggered_'+str(datetime.datetime.now())}
+            
+        return tmp
             # pid = get_pipeline_id(input_name,client)
             # print("pid: ", name)
-
-        tmp = { 'pipelineID': prun.resource_references[1].key.id,
-                'experimentID': prun.resource_references[0].key.id,
-                'status': prun.status,
-                'new_run_name': 'triggered_'+str(datetime.datetime.now())}
-        return tmp
 
     return None
 
@@ -223,10 +225,10 @@ class AccMonitor:
             if (df_temp.shape[0] >= self.min_log_length) and \
                                 (current_time - last_log_time >= self.log_time_delta):
                 filename = current_time.strftime(DATETIME_FORMAT) + ".parquet"
-                logging.info(f"Writing {df_temp.shape[0]} records to {self.pv_location+filename}...")
-                print(f"Writing {df_temp.shape[0]} records to {self.pv_location+filename}...")
+                logging.info(f"Writing {df_temp.shape[0]} records to {self.pv_location} / {filename}...")
+                # print(f"Writing {df_temp.shape[0]} records to {self.pv_location+filename}...")
                 df_temp.reset_index(inplace=True, drop=True)
-                df_temp.to_parquet(self.pv_location+filename)
+                df_temp.to_parquet(self.pv_location+"/"+filename)
 
                 # Clear the dataframe
                 df_temp = pd.DataFrame(columns = col_names)
@@ -254,6 +256,7 @@ class AccMonitor:
                     self.label_queue.clear()
                     self.pred_queue.clear()
                     rolling_acc = 1.0
+                    sleep(5)
 
 
 if __name__ == "__main__":

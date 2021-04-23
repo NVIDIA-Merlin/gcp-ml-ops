@@ -18,6 +18,7 @@
 data_input_path=$1;
 data_local=$2;
 project_id=$3;
+new_data_path=$4;
 
 gcloud auth activate-service-account --key-file=/script/gcloud_key.json
 gcloud container clusters get-credentials cluster-4 --zone us-central1-a --project $project_id
@@ -35,7 +36,7 @@ if [[ "$triton_status" == "Error: release: not found" ]]; then
       mkdir -p $data_local/criteo-data/crit_int_pq
     fi
     echo "Copying data..."
-    gsutil cp -r $data_input_path $data_local/criteo-data/crit_int_pq
+    # gsutil cp -r $data_input_path $data_local/criteo-data/crit_int_pq
     # gsutil cp -r $data_input_path $data_local
     echo "Copying done"
     
@@ -61,7 +62,7 @@ else
       mkdir -p $data_local/criteo-data/new_data
     fi
     echo "Copying data..."
-    gsutil cp -r "gs://criteo-data/new_data/*" $data_local/criteo-data/new_data
+    gsutil cp -r $new_data_path $data_local/criteo-data/new_data
     # gsutil cp -r $data_input_path $data_local
     echo "Copying done"
     
