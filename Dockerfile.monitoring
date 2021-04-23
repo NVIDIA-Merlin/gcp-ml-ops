@@ -35,6 +35,7 @@ RUN curl https://baltocdn.com/helm/signing.asc | apt-key add - && \
 
 COPY $PWD/monitoring /script/
 COPY $gcloud_key /script/
+COPY $PWD/kfp_client_host_key.txt /script/
 
 # Set Environment variables
 ENV GOOGLE_APPLICATION_CREDENTIALS /script/$gcloud_key

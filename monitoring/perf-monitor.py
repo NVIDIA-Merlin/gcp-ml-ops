@@ -339,7 +339,10 @@ if __name__ == "__main__":
 
     logging.info("Starting accuracy monitor...")
 
-    client_host_key = 'https://320d47d67af4e8cf-dot-us-central1.pipelines.googleusercontent.com'
+    client_host_key = None
+
+    with open('/script/kfp_client_host_key.txt','r') as f:
+        client_host_key = f.read()
 
 
     # TODO: Add better error handling, and move configs to a .json
