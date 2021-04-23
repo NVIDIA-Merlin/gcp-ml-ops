@@ -17,6 +17,7 @@
 
 
 PV_LOC=${1:-"/var/lib/data"}
+VALIDATION=${2:-'False'}
 
 if [ -d "$PV_LOC/stats" ] && [ -d "$PV_LOC/stats/stats.txt" ]; then
     previous_version=$(ls $PV_LOC/stats/ -v | tail -n1)
@@ -30,8 +31,13 @@ if [ -d "$PV_LOC/stats" ] && [ -d "$PV_LOC/stats/stats.txt" ]; then
     python3 -u /script/validate-stats.py --stats_file_1 $PV_LOC/stats/stats.txt --stats_file_2  $PV_LOC/stats/"stats"$new_version".txt"
 
 else
-    mkdir -p $PV_LOC/stats/
+    if [[ "$VALIDATION" == 'True' ]]; then
+        mkdir -p $PV_LOC/stats/
 
-    echo "Generating stats for training data..."
-    python3 -u /script/generate-stats.py --data_dir $PV_LOC/criteo-data/crit_int_pq/day_0.parquet --output_dir $PV_LOC/stats/ --file_name "stats.txt"
+        echo "Generating stats for training data..."
+        python3 -u /script/generate-stats.py --data_dir $PV_LOC/criteo-data/crit_int_pq/day_0.parquet --output_dir $PV_LOC/stats/ --file_name "stats.txt"
+    else
+        echo "Not generating stats..."
+    fi
+
 fi

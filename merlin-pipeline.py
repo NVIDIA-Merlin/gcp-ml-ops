@@ -45,7 +45,8 @@ def merlin_pipeline(
   local_data_dir: str = '/var/lib/data',
   project_id: str = 'dl-tme',
   pipeline_name: str = 'merlin-pipeline',
-  new_data_collection: str = 'new_data'):
+  new_data_collection: str = 'new_data',
+  do_data_validation: str = 'False'):
     
     global args, accelerator
 
@@ -63,12 +64,12 @@ def merlin_pipeline(
     )
 
     # Second component - Data validation
-    # data_validation = dsl.ContainerOp(
-    #   name="validate-data",
-    #   image=args.validate_container,
-    #   command=["bash" , "/script/run_validation.sh"],
-    #   arguments=[local_data_dir]
-    # )
+    data_validation = dsl.ContainerOp(
+      name="validate-data",
+      image=args.validate_container,
+      command=["bash" , "/script/run_validation.sh"],
+      arguments=[local_data_dir, do_data_validation]
+    )
 
     # Third component - Preprocess and Train
     preprocess_train = dsl.ContainerOp(
@@ -101,10 +102,10 @@ def merlin_pipeline(
       claim_name=persistent_volume_claim_name))).add_volume_mount(k8s_client.V1VolumeMount(
       mount_path=persistent_volume_path,name=persistent_volume_name)).set_gpu_limit(1).add_node_selector_constraint('cloud.google.com/gke-accelerator', accelerator).add_node_selector_constraint('cloud.google.com/gke-nodepool', node_pool)
 
-    # data_validation.add_volume(k8s_client.V1Volume(name=persistent_volume_name,
-    #   persistent_volume_claim=k8s_client.V1PersistentVolumeClaimVolumeSource(
-    #   claim_name=persistent_volume_claim_name))).add_volume_mount(k8s_client.V1VolumeMount(
-    #   mount_path=persistent_volume_path,name=persistent_volume_name)).add_node_selector_constraint('cloud.google.com/gke-nodepool', high_mem_node)
+    data_validation.add_volume(k8s_client.V1Volume(name=persistent_volume_name,
+      persistent_volume_claim=k8s_client.V1PersistentVolumeClaimVolumeSource(
+      claim_name=persistent_volume_claim_name))).add_volume_mount(k8s_client.V1VolumeMount(
+      mount_path=persistent_volume_path,name=persistent_volume_name)).add_node_selector_constraint('cloud.google.com/gke-nodepool', high_mem_node)
 
     preprocess_train.add_volume(k8s_client.V1Volume(name=persistent_volume_name,
       persistent_volume_claim=k8s_client.V1PersistentVolumeClaimVolumeSource(
@@ -117,8 +118,8 @@ def merlin_pipeline(
       mount_path=persistent_volume_path,name=persistent_volume_name)).set_gpu_limit(1)
 
     # Sequencing the components
-    # data_validation.after(copy_data)
-    preprocess_train.after(copy_data)
+    data_validation.after(copy_data)
+    preprocess_train.after(data_validation)
     deploy_triton.after(preprocess_train)
     monitoring.after(deploy_triton)
 
