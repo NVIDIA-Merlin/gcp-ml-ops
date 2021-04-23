@@ -36,8 +36,7 @@ if [[ "$triton_status" == "Error: release: not found" ]]; then
       mkdir -p $data_local/criteo-data/crit_int_pq
     fi
     echo "Copying data..."
-    # gsutil cp -r $data_input_path $data_local/criteo-data/crit_int_pq
-    # gsutil cp -r $data_input_path $data_local
+    gsutil cp -r $data_input_path $data_local/criteo-data/crit_int_pq
     echo "Copying done"
     
     for entry in "$data_local/criteo-data/crit_int_pq"/*
@@ -63,7 +62,6 @@ else
     fi
     echo "Copying data..."
     gsutil cp -r $new_data_path $data_local/criteo-data/new_data
-    # gsutil cp -r $data_input_path $data_local
     echo "Copying done"
     
     for entry in "$data_local/criteo-data/new_data"/*
