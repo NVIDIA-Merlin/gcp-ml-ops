@@ -19,23 +19,23 @@
 PROJECT_ID=${1:-"dl-tme"}
 GCLOUD_KEY=${2:-"gcloud_key.json"}
 
-COPY_CONTAINER=gcr.io/$PROJECT_ID/google-nvidia-cloud-sdk:0.4
-TRAIN_CONTAINER=gcr.io/$PROJECT_ID/merlin/merlin-training:0.4
-MONITOR_COMPONENT=gcr.io/$PROJECT_ID/monitoring:0.4
-VALIDATE_CONTAINER=gcr.io/$PROJECT_ID/validation:0.4
+COPY_CONTAINER=gcr.io/$PROJECT_ID/google-nvidia-cloud-sdk:0.5.1
+TRAIN_CONTAINER=gcr.io/$PROJECT_ID/merlin/merlin-training:0.5.1
+MONITOR_COMPONENT=gcr.io/$PROJECT_ID/monitoring:0.5.1
+VALIDATE_CONTAINER=gcr.io/$PROJECT_ID/validation:0.5.1
 
 bash build_copy_container.sh $PROJECT_ID $GCLOUD_KEY
-COPY_CONTAINER=$(docker inspect --format="{{index .RepoDigests 0}}" gcr.io/$PROJECT_ID/google-nvidia-cloud-sdk:0.4)
+COPY_CONTAINER=$(docker inspect --format="{{index .RepoDigests 0}}" gcr.io/$PROJECT_ID/google-nvidia-cloud-sdk:0.5.1)
 DEPLOY_CONTAINER=$COPY_CONTAINER
 
 bash build_validation_component.sh $PROJECT_ID $GCLOUD_KEY
-VALIDATE_CONTAINER=$(docker inspect --format="{{index .RepoDigests 0}}" gcr.io/$PROJECT_ID/validation:0.4)
+VALIDATE_CONTAINER=$(docker inspect --format="{{index .RepoDigests 0}}" gcr.io/$PROJECT_ID/validation:0.5.1)
 
 bash build_training_container.sh $PROJECT_ID $GCLOUD_KEY
-TRAIN_CONTAINER=$(docker inspect --format="{{index .RepoDigests 0}}" gcr.io/$PROJECT_ID/merlin/merlin-training:0.4)
+TRAIN_CONTAINER=$(docker inspect --format="{{index .RepoDigests 0}}" gcr.io/$PROJECT_ID/merlin/merlin-training:0.5.1)
 
 bash build_monitoring_component.sh $PROJECT_ID $GCLOUD_KEY
-MONITOR_COMPONENT=$(docker inspect --format="{{index .RepoDigests 0}}" gcr.io/$PROJECT_ID/monitoring:0.4)
+MONITOR_COMPONENT=$(docker inspect --format="{{index .RepoDigests 0}}" gcr.io/$PROJECT_ID/monitoring:0.5.1)
 
 
 source activate mlpipeline

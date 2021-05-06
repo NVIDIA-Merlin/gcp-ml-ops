@@ -29,7 +29,7 @@ replicaCount: 1
 migPartition: 3g.20gb
 
 image:
-  imageName: gcr.io/dl-tme/merlin/merlin-inference:v0.5
+  imageName: gcr.io/dl-tme/merlin/merlin-inference:0.5.1
   pullPolicy: Always
   modelRepositoryPath: /model/models
   numGpus: 1
