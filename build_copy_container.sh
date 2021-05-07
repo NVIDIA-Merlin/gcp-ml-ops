@@ -20,11 +20,11 @@ PROJECT_ID=${1:-"dl-tme"} # Google Cloud project ID
 GCLOUD_KEY=${2:-"gcloud_key.json"} # Path to Google Cloud key
 
 image_name=gcr.io/$PROJECT_ID/google-nvidia-cloud-sdk # Specify the image name here
-image_tag=0.4
+image_tag=0.5.1
 
 full_image_name=${image_name}:${image_tag}
 
-docker build --build-arg gcloud_key=$GCLOUD_KEY --no-cache -f Dockerfile.copy -t $full_image_name  .
+docker build --build-arg gcloud_key=$GCLOUD_KEY -f Dockerfile.copy -t $full_image_name  .
 
 printf "\n\nPushing the container on GCR..."
 docker push $full_image_name

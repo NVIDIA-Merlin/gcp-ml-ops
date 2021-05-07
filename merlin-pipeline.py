@@ -32,16 +32,21 @@ args = None
 accelerator = 'nvidia-tesla-a100'
 node_pool = 'a100-pool'
 high_mem_node = 'high-mem-node'
+gcs_bucket_head = ''
 
 @dsl.pipeline(
     name="Merlin pipeline",
     description="HugeCTR training to deployment"
 )
 def merlin_pipeline(
-  data_dir: 'GCSPath' = 'gs://criteo-data/dummy_data/*',
+  data_dir: 'GCSPath' = 'gs://tme-criteo/dummy_data/*',
+  new_data_dir: 'GCSPath' = 'gs://tme-criteo/new_data/*',
+  gcs_bucket_head: str = 'tme-criteo',
   local_data_dir: str = '/var/lib/data',
   project_id: str = 'dl-tme',
-  pipeline_name: str = 'merlin-pipeline'):
+  pipeline_name: str = 'merlin-pipeline',
+  new_data_collection: str = 'new_data',
+  do_data_validation: str = 'False'):
     
     global args, accelerator
 
@@ -54,25 +59,22 @@ def merlin_pipeline(
     copy_data = dsl.ContainerOp(
       name="data-extraction",
       image=args.data_extraction,
-      # image='',
       command=["bash" , "/script/run_copy_merlin.sh"],
-      arguments=[data_dir, local_data_dir, project_id]
+      arguments=[data_dir, local_data_dir, project_id, new_data_dir]
     )
 
     # Second component - Data validation
     data_validation = dsl.ContainerOp(
       name="validate-data",
       image=args.validate_container,
-      # image='',
       command=["bash" , "/script/run_validation.sh"],
-      arguments=[local_data_dir]
+      arguments=[local_data_dir, do_data_validation]
     )
 
     # Third component - Preprocess and Train
     preprocess_train = dsl.ContainerOp(
       name="merlin-preprocess-train",
       image=args.preprocess_train_container,
-      # image='',
       command=["bash", "/script/preprocess-train.sh"],
       arguments=[local_data_dir, project_id]
     )
@@ -81,7 +83,6 @@ def merlin_pipeline(
     deploy_triton = dsl.ContainerOp(
       name="triton-inference",
       image=args.deploy_container,
-      # image='',
       command=["bash" , "/script/run_merlin_inference.sh"],
       arguments=[local_data_dir, project_id, "/script/gcloud_key.json"]
     )
@@ -90,10 +91,9 @@ def merlin_pipeline(
     monitoring = dsl.ContainerOp(
       name="data-monitoring",
       image=args.monitor_container,
-      # image='',
       command=["bash" , "/script/run_monitoring.sh"],
-      arguments=[project_id, args.monitor_container]
-    )
+      arguments=[project_id, args.monitor_container, pipeline_name, gcs_bucket_head, new_data_collection, "{}{}{}".format(local_data_dir,"/",new_data_collection)]
+    ).set_gpu_limit(1).add_node_selector_constraint('cloud.google.com/gke-accelerator', accelerator).add_node_selector_constraint('cloud.google.com/gke-nodepool', node_pool)
 
 
     # Adding PV, PVC, GPU constraints to the components
@@ -105,7 +105,8 @@ def merlin_pipeline(
     data_validation.add_volume(k8s_client.V1Volume(name=persistent_volume_name,
       persistent_volume_claim=k8s_client.V1PersistentVolumeClaimVolumeSource(
       claim_name=persistent_volume_claim_name))).add_volume_mount(k8s_client.V1VolumeMount(
-      mount_path=persistent_volume_path,name=persistent_volume_name)).add_node_selector_constraint('cloud.google.com/gke-nodepool', high_mem_node)
+      mount_path=persistent_volume_path,name=persistent_volume_name)).set_gpu_limit(1).add_node_selector_constraint('cloud.google.com/gke-accelerator', accelerator).add_node_selector_constraint('cloud.google.com/gke-nodepool', node_pool)
+
 
     preprocess_train.add_volume(k8s_client.V1Volume(name=persistent_volume_name,
       persistent_volume_claim=k8s_client.V1PersistentVolumeClaimVolumeSource(
@@ -115,7 +116,7 @@ def merlin_pipeline(
     deploy_triton.add_volume(k8s_client.V1Volume(name=persistent_volume_name,
       persistent_volume_claim=k8s_client.V1PersistentVolumeClaimVolumeSource(
       claim_name=persistent_volume_claim_name))).add_volume_mount(k8s_client.V1VolumeMount(
-      mount_path=persistent_volume_path,name=persistent_volume_name)).set_gpu_limit(1)
+      mount_path=persistent_volume_path,name=persistent_volume_name)).set_gpu_limit(1).add_node_selector_constraint('cloud.google.com/gke-accelerator', accelerator).add_node_selector_constraint('cloud.google.com/gke-nodepool', node_pool)
 
     # Sequencing the components
     data_validation.after(copy_data)
@@ -130,7 +131,7 @@ if __name__ == '__main__':
   parser.add_argument("-vc",
                       "--validate_container",
                         type=str,
-                        required=True,
+                        required=False,
                         help="pass validate data container")
 
   parser.add_argument("-dex",

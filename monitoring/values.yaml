@@ -25,3 +25,9 @@ image:
   pullPolicy: Always
   # Overrides the image tag whose default is the chart appVersion.
 
+project_id: "dl-tme"
+pipeline: "merlin-pipeline"
+gcs_bucket: "criteo-data"
+bucket_path: "new_data"
+local: "/var/lib/data/new_data"
+pubsub: "mlops-test-sub"

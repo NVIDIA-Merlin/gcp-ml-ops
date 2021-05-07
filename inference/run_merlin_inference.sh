@@ -34,7 +34,8 @@ if [[ "$triton_status" == "Error: release: not found" ]]; then
     cp /script/load-triton-ensemble.py $PV_LOC/inference/load-triton-ensemble.py
     cp /script/triton/run_triton.sh $PV_LOC/inference/run_triton.sh
 
-    helm install triton /script/triton/ --set image.repository=gcr.io/$PROJECT_ID/merlin/merlin-inference:v0.5
+    # helm install triton /script/triton/ --set image.repository=gcr.io/$PROJECT_ID/merlin/merlin-inference:v0.5
+    helm install triton /script/triton/ --set image.repository=gcr.io/$PROJECT_ID/merlin/merlin-inference:0.5.1
 else
     echo "Triton running already, not deploying another instance."
 fi

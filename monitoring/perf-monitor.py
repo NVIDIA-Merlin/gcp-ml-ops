@@ -35,8 +35,7 @@ import datetime
 #                     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 # logger = logging.getLogger(__name__)
 
-client = kfp.Client(host='https://320d47d67af4e8cf-dot-us-central1.pipelines.googleusercontent.com')
-
+# client = kfp.Client(host='https://320d47d67af4e8cf-dot-us-central1.pipelines.googleusercontent.com')
 
 def get_pipeline_id(name, client):
     pl_id = None
@@ -54,12 +53,13 @@ def get_pipeline_id(name, client):
             break
     return pl_id
 
-def get_pipeline_info(input_name, client):
+def get_pipeline_info(input_name, client_key):
     page_size = 200
     page_token = ''
     pipeline_runs = []
 
-    # res = client.list_pipelines(page_size=page_size, page_token=page_token)
+    client = kfp.Client(host=client_key)
+
     res = client.list_runs(page_size=page_size, page_token=page_token)
     for runs in res.runs:
         if runs.resource_references[1].name == input_name:
@@ -69,28 +69,35 @@ def get_pipeline_info(input_name, client):
         for prun in pipeline_runs:
             if prun.status == 'Running':
                 return None
+
+    # if prun.status == 'Succeeded':
+        tmp = { 'pipelineID': prun.resource_references[1].key.id,
+            'experimentID': prun.resource_references[0].key.id,
+            'status': prun.status,
+            'new_run_name': 'triggered_'+str(datetime.datetime.now())}
+            
+        return tmp
             # pid = get_pipeline_id(input_name,client)
             # print("pid: ", name)
 
-        tmp = { 'pipelineID': prun.resource_references[1].key.id,
-                'experimentID': prun.resource_references[0].key.id,
-                'status': prun.status,
-                'new_run_name': 'triggered_'+str(datetime.datetime.now())}
-        return tmp
-
     return None
 
-def trigger_kfp(pipeline_name):
+def trigger_kfp(pipeline_name, client_key):
     logging.warning("Triggering Kubeflow Pipeline...")
 
     # If pipeline is already running --> False
     # Else -> True
+    try:
+        pipeline_info = get_pipeline_info(pipeline_name, client_key)
+    except Exception as e:
+        logging.error(f"Triggering pipeline error: {e}")
+        return False
 
-    pipeline_info = get_pipeline_info(pipeline_name, client)
     logging.info(f"Pipeline info: {pipeline_info}")
 
     if pipeline_info != None:
             print("Using pipeline ID: ", pipeline_info['pipelineID'], " triggering ", pipeline_info['new_run_name'], " at: ", datetime.datetime.now())
+            client = kfp.Client(host=client_key)
             res = client.run_pipeline(pipeline_info['experimentID'], pipeline_info['new_run_name'], pipeline_id=pipeline_info['pipelineID'])
             return True
     else:
@@ -101,10 +108,11 @@ def trigger_kfp(pipeline_name):
 class AccMonitor:
     def __init__(self, project_id, subscription_id, timeout, evaluate_period=500,
                     acc_threshold=0.5, min_trigger_len=0.5, pipeline_name='merlin-pipeline',
-                    min_log_length=320, log_time_delta=60,pv_location='/var/lib/data/'):
+                    min_log_length=320, log_time_delta=60,pv_location='/var/lib/data/', client_host=None):
         self.evaluate_period = evaluate_period
         self.pipeline_name = pipeline_name
         self.pv_location = pv_location
+        self.client_host_key = client_host
         # Thread safe Queues where each item is a request
         self.request_queue = Queue(maxsize=self.evaluate_period)
 
@@ -223,10 +231,10 @@ class AccMonitor:
             if (df_temp.shape[0] >= self.min_log_length) and \
                                 (current_time - last_log_time >= self.log_time_delta):
                 filename = current_time.strftime(DATETIME_FORMAT) + ".parquet"
-                logging.info(f"Writing {df_temp.shape[0]} records to {self.pv_location+filename}...")
-                print(f"Writing {df_temp.shape[0]} records to {self.pv_location+filename}...")
+                logging.info(f"Writing {df_temp.shape[0]} records to {self.pv_location} / {filename}...")
+                # print(f"Writing {df_temp.shape[0]} records to {self.pv_location+filename}...")
                 df_temp.reset_index(inplace=True, drop=True)
-                df_temp.to_parquet(self.pv_location+filename)
+                df_temp.to_parquet(self.pv_location+"/"+filename)
 
                 # Clear the dataframe
                 df_temp = pd.DataFrame(columns = col_names)
@@ -246,7 +254,7 @@ class AccMonitor:
 
 
             if (rolling_acc < self.acc_threshold) and (len(self.label_queue) > self.min_trigger_len):
-                success = trigger_kfp(self.pipeline_name)
+                success = trigger_kfp(self.pipeline_name, self.client_host_key)
                 # If the pipeline has triggered, refresh the result circular buffer,
                 # and calculate fresh metrics. Ideally we need a better mechanism to
                 # check if the pipeline is already running, then don't retrigger
@@ -254,6 +262,7 @@ class AccMonitor:
                     self.label_queue.clear()
                     self.pred_queue.clear()
                     rolling_acc = 1.0
+                    sleep(5)
 
 
 if __name__ == "__main__":
@@ -330,6 +339,12 @@ if __name__ == "__main__":
 
     logging.info("Starting accuracy monitor...")
 
+    client_host_key = None
+
+    with open('/script/kfp_client_host_key.txt','r') as f:
+        client_host_key = f.read()
+
+
     # TODO: Add better error handling, and move configs to a .json
     am = AccMonitor(project_id=args.project_id,
                     subscription_id=args.subscription_id,
@@ -340,6 +355,7 @@ if __name__ == "__main__":
                     pipeline_name=args.pipeline_name,
                     min_log_length=args.min_log_length,
                     log_time_delta=args.log_time_delta,
-                    pv_location=args.PV_loc)
+                    pv_location=args.PV_loc,
+                    client_host=client_host_key)
 
     am.run()
