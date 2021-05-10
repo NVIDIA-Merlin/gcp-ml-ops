@@ -19,9 +19,11 @@ data_input_path=$1;
 data_local=$2;
 project_id=$3;
 new_data_path=$4;
+cluster=$5;
+zone=$6;
 
 gcloud auth activate-service-account --key-file=/script/gcloud_key.json
-gcloud container clusters get-credentials cluster-4 --zone us-central1-a --project $project_id
+gcloud container clusters get-credentials $cluster --zone $zone --project $project_id
 gcloud config set project $project_id
 
 triton_status=$(helm status triton 2>&1)
