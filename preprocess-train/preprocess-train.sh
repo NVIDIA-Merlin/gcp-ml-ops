@@ -15,7 +15,7 @@
 # limitations under the License.
 # ==============================================================================
 
-source activate rapids
+source activate merlin
 
 PV_LOC=${1:-"/var/lib/data"}
 PROJECT=${2:-"dl-tme"}

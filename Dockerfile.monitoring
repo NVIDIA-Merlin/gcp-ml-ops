@@ -23,7 +23,7 @@ ARG project_id
 RUN apt-get update && \
     apt-get install -y python3-pip vim curl 
 
-# RUN source activate rapids
+# RUN source activate merlin
 RUN pip3 install kfp
 RUN pip3 install --upgrade google-cloud-pubsub
 RUN pip3 install scikit-learn pandas pyarrow

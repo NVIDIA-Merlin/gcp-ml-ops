@@ -19,7 +19,7 @@ MODELS_DIR=${1:-"/model/models"}
 
 set -m
 
-source activate rapids
+source activate merlin
 
 tritonserver --model-repository=$MODELS_DIR  --backend-config=hugectr,dcn=$MODELS_DIR/dcn/1/dcn.json --backend-config=hugectr,supportlonglong=true --model-control-mode=poll --repository-poll-secs=10 &
 
