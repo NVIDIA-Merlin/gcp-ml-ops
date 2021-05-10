@@ -29,10 +29,10 @@ logging.basicConfig(level=logging.DEBUG, format='%(asctime)s %(name)s %(levelnam
 logger = logging.getLogger(__name__)
 
 args = None
-accelerator = 'nvidia-tesla-a100'
-node_pool = 'a100-pool'
-high_mem_node = 'high-mem-node'
-gcs_bucket_head = ''
+accelerator = 'nvidia-tesla-t4'
+node_pool = 'gpu-pool'
+high_mem_node = 'highmem-pool'
+gcs_bucket_head = 'tme-criteo'
 
 @dsl.pipeline(
     name="Merlin pipeline",
@@ -46,7 +46,10 @@ def merlin_pipeline(
   project_id: str = 'dl-tme',
   pipeline_name: str = 'merlin-pipeline',
   new_data_collection: str = 'new_data',
-  do_data_validation: str = 'False'):
+  do_data_validation: str = 'False',
+  pubsub_sub_id: str = 'mlops-test-sub',
+  cluster: str = 'merlin-mlops',
+  zone: str = 'us-central1-a'):
     
     global args, accelerator
 
@@ -60,7 +63,7 @@ def merlin_pipeline(
       name="data-extraction",
       image=args.data_extraction,
       command=["bash" , "/script/run_copy_merlin.sh"],
-      arguments=[data_dir, local_data_dir, project_id, new_data_dir]
+      arguments=[data_dir, local_data_dir, project_id, new_data_dir, cluster, zone]
     )
 
     # Second component - Data validation
@@ -76,7 +79,7 @@ def merlin_pipeline(
       name="merlin-preprocess-train",
       image=args.preprocess_train_container,
       command=["bash", "/script/preprocess-train.sh"],
-      arguments=[local_data_dir, project_id]
+      arguments=[local_data_dir, project_id, cluster, zone]
     )
 
     # Fourth component - Model deployment
@@ -84,7 +87,7 @@ def merlin_pipeline(
       name="triton-inference",
       image=args.deploy_container,
       command=["bash" , "/script/run_merlin_inference.sh"],
-      arguments=[local_data_dir, project_id, "/script/gcloud_key.json"]
+      arguments=[local_data_dir, project_id, "/script/gcloud_key.json", cluster, zone]
     )
 
     # Fifth component - Monitoring
@@ -92,7 +95,7 @@ def merlin_pipeline(
       name="data-monitoring",
       image=args.monitor_container,
       command=["bash" , "/script/run_monitoring.sh"],
-      arguments=[project_id, args.monitor_container, pipeline_name, gcs_bucket_head, new_data_collection, "{}{}{}".format(local_data_dir,"/",new_data_collection)]
+      arguments=[project_id, args.monitor_container, pipeline_name, gcs_bucket_head, new_data_collection, "{}{}{}".format(local_data_dir,"/",new_data_collection), cluster, zone]
     ).set_gpu_limit(1).add_node_selector_constraint('cloud.google.com/gke-accelerator', accelerator).add_node_selector_constraint('cloud.google.com/gke-nodepool', node_pool)
 
 
