@@ -29,16 +29,15 @@ logging.basicConfig(level=logging.DEBUG, format='%(asctime)s %(name)s %(levelnam
 logger = logging.getLogger(__name__)
 
 args = None
-accelerator = 'nvidia-tesla-t4'
-node_pool = 'gpu-pool'
-high_mem_node = 'highmem-pool'
-gcs_bucket_head = 'tme-criteo'
 
 @dsl.pipeline(
     name="Merlin pipeline",
     description="HugeCTR training to deployment"
 )
 def merlin_pipeline(
+  accelerator: str = 'nvidia-tesla-a100',
+  node_pool: str = 'gpu-pool',
+  high_mem_node: str = 'none',
   data_dir: 'GCSPath' = 'gs://tme-criteo/dummy_data/*',
   new_data_dir: 'GCSPath' = 'gs://tme-criteo/new_data/*',
   gcs_bucket_head: str = 'tme-criteo',
