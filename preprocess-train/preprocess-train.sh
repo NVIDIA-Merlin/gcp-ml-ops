@@ -14,8 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
-
-source activate merlin
+set -e
 
 PV_LOC=${1:-"/var/lib/data"}
 PROJECT=${2:-"dl-tme"}
