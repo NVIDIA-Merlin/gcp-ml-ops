@@ -50,7 +50,7 @@ def merlin_pipeline(
   cluster: str = 'merlin-mlops',
   zone: str = 'us-central1-a'):
     
-    global args, accelerator
+    global args
 
     # Persistent volume variables
     persistent_volume_name = 'my-file-server'
