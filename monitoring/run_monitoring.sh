@@ -22,9 +22,12 @@ GCS_BUCKET=${4:-"criteo-data"}
 BUCKET_PATH=${5:-"new_data"}
 LOCAL=${6:-"/var/lib/data/new_data"}
 PUBSUB=${7:-"mlops-test-sub"}
+CLUSTER=${8:-"merlin-mlops"}
+ZONE=${9:-"us-central1-a"}
+
 
 gcloud auth activate-service-account --key-file=/script/gcloud_key.json
-gcloud container clusters get-credentials cluster-4 --zone us-central1-a --project $PROJECT
+gcloud container clusters get-credentials $CLUSTER --zone $ZONE --project $PROJECT
 
 monitoring_status=$(helm status monitoring 2>&1)
 echo "monitoring status: "

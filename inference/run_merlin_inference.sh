@@ -18,9 +18,11 @@
 PV_LOC=${1:-"/var/lib/data"}
 PROJECT_ID=${2:-"dl-tme"}
 GCLOUD_KEY=${3:-"/script/gcloud_key.json"}
+CLUSTER=${4:-"merlin-mlops"}
+ZONE=${5:-"us-central1-a"}
 
 gcloud auth activate-service-account --key-file=$GCLOUD_KEY
-gcloud container clusters get-credentials cluster-4 --zone us-central1-a --project $PROJECT_ID
+gcloud container clusters get-credentials $CLUSTER --zone $ZONE --project $PROJECT_ID
 gcloud config set project $PROJECT_ID
 
 if ! [ -d $PV_LOC/inference ]; then
@@ -39,6 +41,3 @@ if [[ "$triton_status" == "Error: release: not found" ]]; then
 else
     echo "Triton running already, not deploying another instance."
 fi
-
-
-

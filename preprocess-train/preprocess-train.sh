@@ -14,11 +14,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
-
-source activate rapids
+set -e
 
 PV_LOC=${1:-"/var/lib/data"}
 PROJECT=${2:-"dl-tme"}
+cluster=${3:-"merlin-mlops"}
+zone=${4:-"us-central1-a"}
 
 cp -r /script $PV_LOC
 
@@ -27,7 +28,7 @@ cd $PV_LOC
 echo $PV_LOC
 
 gcloud auth activate-service-account --key-file=/script/gcloud_key.json
-gcloud container clusters get-credentials cluster-4 --zone us-central1-a --project $PROJECT
+gcloud container clusters get-credentials $cluster --zone $zone --project $PROJECT
 gcloud config set project $PROJECT
 
 # Check if triton is deployed
