@@ -33,8 +33,7 @@ spec:
     spec:
       containers:
       - name: custom-metrics-server
-        #image: quay.io/coreos/k8s-prometheus-adapter-amd64:v0.4.1
-        image: directxman12/k8s-prometheus-adapter-amd64
+        image: directxman12/k8s-prometheus-adapter-amd64@sha256:33f37046134371b5a9ba5799aa5ff3a72d69372f1361724d8fe89d87cda55a25
         args:
         #- --prometheus-url=http://kube-prometheus-stack-1616-prometheus:9090
         - --prometheus-url=http://10.4.6.5:9090

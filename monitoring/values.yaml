@@ -21,8 +21,8 @@
 replicaCount: 1
 
 image:
-  repository: nginx
-  pullPolicy: Always
+  repository: ""
+  pullPolicy: IfNotPresent
   # Overrides the image tag whose default is the chart appVersion.
 
 project_id: "dl-tme"

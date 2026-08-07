@@ -191,7 +191,7 @@ want to override and pass it to helm.
 $ cat << EOF > config.yaml
 namespace: MyCustomNamespace
 image:
-  imageName: nvcr.io/nvidia/tritonserver:custom-tag
+  imageName: nvcr.io/nvidia/tritonserver@sha256:<64-character-digest>
   modelRepositoryPath: gs://my_model_repository
 EOF
 $ helm install --name example -f config.yaml .

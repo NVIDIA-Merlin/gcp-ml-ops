@@ -13,6 +13,9 @@
 # limitations under the License.
 # ==============================================================================
 
+{{- if not (regexMatch "^[^[:space:]]+@sha256:[a-f0-9]{64}$" .Values.image.repository) }}
+{{- fail "image.repository must be an immutable sha256 digest reference" }}
+{{- end }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:

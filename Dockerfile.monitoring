@@ -14,7 +14,7 @@
 # ==============================================================================
 
 
-FROM google/cloud-sdk
+FROM google/cloud-sdk:367.0.0@sha256:f5575b1258033019c6c44329a8179abb8d91110431d3c5c540fdafc8a8f0b74e
 
 ARG project_id
 
@@ -22,19 +22,19 @@ ARG project_id
 RUN apt-get update && \
     apt-get install -y python3-pip vim curl 
 
-RUN pip3 install kfp
-RUN pip3 install --upgrade google-cloud-pubsub
-RUN pip3 install scikit-learn pandas pyarrow
+COPY requirements.monitoring.txt /tmp/requirements.txt
+RUN pip3 install --no-cache-dir -r /tmp/requirements.txt
 
-RUN curl https://baltocdn.com/helm/signing.asc | apt-key add - && \
-    apt-get install apt-transport-https --yes && \
-    echo "deb https://baltocdn.com/helm/stable/debian/ all main" | tee /etc/apt/sources.list.d/helm-stable-debian.list && \
-    apt-get update && apt-get install helm
+RUN curl -fsSLo /tmp/helm.tar.gz https://get.helm.sh/helm-v3.18.6-linux-amd64.tar.gz && \
+    echo "3f43c0aa57243852dd542493a0f54f1396c0bc8ec7296bbb2c01e802010819ce  /tmp/helm.tar.gz" | sha256sum -c - && \
+    tar -xzf /tmp/helm.tar.gz -C /tmp && \
+    install -m 0755 /tmp/linux-amd64/helm /usr/local/bin/helm && \
+    rm -rf /tmp/helm.tar.gz /tmp/linux-amd64
 
-COPY $PWD/monitoring /script/
+COPY monitoring /script/
 
 # Set Environment variables
-ENV PROJECT $project_id
+ENV PROJECT=$project_id
 # ENV PYTHONUNBUFFERED=0
 
 WORKDIR /script

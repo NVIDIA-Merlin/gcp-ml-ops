@@ -14,20 +14,19 @@
 # ==============================================================================
 
 
-FROM google/cloud-sdk
+FROM google/cloud-sdk:367.0.0@sha256:f5575b1258033019c6c44329a8179abb8d91110431d3c5c540fdafc8a8f0b74e
 
 ARG project_id
 
 RUN apt-get update && \
     apt-get install -y python3-pip vim curl 
 
-RUN pip3 install tensorflow-data-validation && \
-    pip3 install protobuf && \
-    pip3 install pandas ipython
+COPY requirements.validation.txt /tmp/requirements.txt
+RUN pip3 install --no-cache-dir -r /tmp/requirements.txt
 
-COPY $PWD/validation /script/
+COPY validation /script/
 
-ENV PROJECT $project_id
+ENV PROJECT=$project_id
 ENV PYTHONUNBUFFERED=0
 
 WORKDIR /script

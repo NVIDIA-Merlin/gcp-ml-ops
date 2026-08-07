@@ -20,6 +20,7 @@ PROJECT_ID=${2:-"dl-tme"}
 CLUSTER=${3:-"merlin-mlops"}
 ZONE=${4:-"us-central1-a"}
 WORKLOAD_SERVICE_ACCOUNT=${5:-"mlops-workload"}
+TRITON_IMAGE=${6:?"Triton image digest must be provided"}
 
 gcloud container clusters get-credentials $CLUSTER --zone $ZONE --project $PROJECT_ID
 gcloud config set project $PROJECT_ID
@@ -35,8 +36,7 @@ if [[ "$triton_status" == "Error: release: not found" ]]; then
     cp /script/load-triton-ensemble.py $PV_LOC/inference/load-triton-ensemble.py
     cp /script/triton/run_triton.sh $PV_LOC/inference/run_triton.sh
 
-    # helm install triton /script/triton/ --set image.repository=gcr.io/$PROJECT_ID/merlin/merlin-inference:v0.5
-    helm install triton /script/triton/ --set image.repository=gcr.io/$PROJECT_ID/merlin/merlin-inference:0.5.1 --set serviceAccountName="$WORKLOAD_SERVICE_ACCOUNT"
+    helm install triton /script/triton/ --set image.imageName="$TRITON_IMAGE" --set serviceAccountName="$WORKLOAD_SERVICE_ACCOUNT"
 else
     echo "Triton running already, not deploying another instance."
 fi

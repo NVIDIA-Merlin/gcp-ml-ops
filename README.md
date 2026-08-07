@@ -33,6 +33,9 @@ Before running the pipeline:
 4. Grant the monitoring identity subscriber access only to its required Pub/Sub
    subscription and grant each workload access only to its required storage
    objects.
+5. Use only immutable image digest references for deployed workloads. The build
+   scripts print the pushed digest; pass a digest reference through the
+   `triton_image` pipeline parameter as well.
 
 ## Running the example
 Please follow the User Guide available [here](https://docs.google.com/document/d/1P_BerGSP5CNzGjGbRqgMrPcNaCmQuKUyodFaG0jlu9I/edit?usp=sharing)!

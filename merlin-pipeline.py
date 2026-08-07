@@ -47,6 +47,7 @@ def merlin_pipeline(
   new_data_collection: str = 'new_data',
   do_data_validation: str = 'False',
   pubsub_sub_id: str = 'mlops-test-sub',
+  triton_image: str = '',
   cluster: str = 'merlin-mlops',
   kfp_host: str = '',
   workload_service_account: str = 'mlops-workload',
@@ -88,7 +89,7 @@ def merlin_pipeline(
       name="triton-inference",
       image=args.deploy_container,
       command=["bash" , "/script/run_merlin_inference.sh"],
-      arguments=[local_data_dir, project_id, cluster, zone, workload_service_account]
+      arguments=[local_data_dir, project_id, cluster, zone, workload_service_account, triton_image]
     )
 
     # Fifth component - Monitoring
