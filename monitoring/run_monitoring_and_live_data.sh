@@ -20,9 +20,11 @@ BUCKET_PATH=${3:-"new_data"}
 LOCAL=${4:-"/var/lib/data/new_data"}
 PIPELINE=${5:-"merlin-pipeline"}
 PUBSUB=${6:-"mlops-test-sub"}
+KFP_HOST=${KFP_HOST:?"KFP_HOST must be configured"}
+
 
 echo "perf monitor"
-python3 -u /script/perf-monitor.py --PV_loc $LOCAL --project_id $PROJECT_ID --subscription_id $PUBSUB --evaluate_period 200 --min_trigger_len 0.5 --acc_threshold 0.8 --pipeline_name $PIPELINE &
+python3 -u /script/perf-monitor.py --PV_loc "$LOCAL" --project_id "$PROJECT_ID" --subscription_id "$PUBSUB" --evaluate_period 200 --min_trigger_len 0.5 --acc_threshold 0.8 --pipeline_name "$PIPELINE" --kfp_host "$KFP_HOST" &
 
 echo "gcs"
 python3 -u /script/csv_read_gcs_write.py --pv_dir $LOCAL  --sleep_time 10 --bucket $GCS_BUCKET --bucket_path $BUCKET_PATH

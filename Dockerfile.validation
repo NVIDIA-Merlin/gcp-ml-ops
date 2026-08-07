@@ -16,7 +16,6 @@
 
 FROM google/cloud-sdk
 
-ARG gcloud_key
 ARG project_id
 
 RUN apt-get update && \
@@ -27,9 +26,7 @@ RUN pip3 install tensorflow-data-validation && \
     pip3 install pandas ipython
 
 COPY $PWD/validation /script/
-COPY $gcloud_key /script/
 
-ENV GOOGLE_APPLICATION_CREDENTIALS /script/$gcloud_key
 ENV PROJECT $project_id
 ENV PYTHONUNBUFFERED=0
 

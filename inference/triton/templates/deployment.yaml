@@ -47,6 +47,7 @@ spec:
         release: {{ .Release.Name }}
 
     spec:
+      serviceAccountName: {{ .Values.serviceAccountName | quote }}
       nodeSelector:
         cloud.google.com/gke-nodepool: a100-pool
       #   cloud.google.com/gke-accelerator: nvidia-tesla-a100

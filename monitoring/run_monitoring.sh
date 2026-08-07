@@ -22,18 +22,19 @@ GCS_BUCKET=${4:-"criteo-data"}
 BUCKET_PATH=${5:-"new_data"}
 LOCAL=${6:-"/var/lib/data/new_data"}
 PUBSUB=${7:-"mlops-test-sub"}
-CLUSTER=${8:-"merlin-mlops"}
-ZONE=${9:-"us-central1-a"}
+KFP_HOST=${8:?"KFP host must be provided"}
+WORKLOAD_SERVICE_ACCOUNT=${9:-"mlops-workload"}
+CLUSTER=${10:-"merlin-mlops"}
+ZONE=${11:-"us-central1-a"}
 
 
-gcloud auth activate-service-account --key-file=/script/gcloud_key.json
 gcloud container clusters get-credentials $CLUSTER --zone $ZONE --project $PROJECT
 
 monitoring_status=$(helm status monitoring 2>&1)
 echo "monitoring status: "
 echo $monitoring_status
 if [[ "$monitoring_status" == "Error: release: not found" ]]; then
-    helm install monitoring --set project_id=$PROJECT --set image.repository=$DOCKER_IMG --set pipeline=$PIPELINE --set gcs_bucket=$GCS_BUCKET --set bucket_path=$BUCKET_PATH --set local=$LOCAL --set pubsub=$PUBSUB /script
+    helm install monitoring --set project_id="$PROJECT" --set image.repository="$DOCKER_IMG" --set pipeline="$PIPELINE" --set gcs_bucket="$GCS_BUCKET" --set bucket_path="$BUCKET_PATH" --set local="$LOCAL" --set pubsub="$PUBSUB" --set-string kfp_host="$KFP_HOST" --set serviceAccountName="$WORKLOAD_SERVICE_ACCOUNT" /script
 else
     echo "Monitoring module running already, not deploying another instance"
 fi

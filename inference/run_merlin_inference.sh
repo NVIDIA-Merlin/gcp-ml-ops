@@ -17,11 +17,10 @@
 
 PV_LOC=${1:-"/var/lib/data"}
 PROJECT_ID=${2:-"dl-tme"}
-GCLOUD_KEY=${3:-"/script/gcloud_key.json"}
-CLUSTER=${4:-"merlin-mlops"}
-ZONE=${5:-"us-central1-a"}
+CLUSTER=${3:-"merlin-mlops"}
+ZONE=${4:-"us-central1-a"}
+WORKLOAD_SERVICE_ACCOUNT=${5:-"mlops-workload"}
 
-gcloud auth activate-service-account --key-file=$GCLOUD_KEY
 gcloud container clusters get-credentials $CLUSTER --zone $ZONE --project $PROJECT_ID
 gcloud config set project $PROJECT_ID
 
@@ -37,7 +36,7 @@ if [[ "$triton_status" == "Error: release: not found" ]]; then
     cp /script/triton/run_triton.sh $PV_LOC/inference/run_triton.sh
 
     # helm install triton /script/triton/ --set image.repository=gcr.io/$PROJECT_ID/merlin/merlin-inference:v0.5
-    helm install triton /script/triton/ --set image.repository=gcr.io/$PROJECT_ID/merlin/merlin-inference:0.5.1
+    helm install triton /script/triton/ --set image.repository=gcr.io/$PROJECT_ID/merlin/merlin-inference:0.5.1 --set serviceAccountName="$WORKLOAD_SERVICE_ACCOUNT"
 else
     echo "Triton running already, not deploying another instance."
 fi

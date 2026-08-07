@@ -32,12 +32,16 @@ spec:
       labels:
         {{- include "monitoring-module.selectorLabels" . | nindent 8 }}
     spec:
+      serviceAccountName: {{ .Values.serviceAccountName | quote }}
       containers:
         - name: {{ .Chart.Name }}
           image: "{{ .Values.image.repository }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           command: ["/bin/sh","-c"]
           args: ["bash run_monitoring_and_live_data.sh {{ .Values.project_id }} {{ .Values.gcs_bucket }} {{ .Values.bucket_path }} {{ .Values.local }} {{ .Values.pipeline }} {{ .Values.pubsub }}"]
+          env:
+            - name: KFP_HOST
+              value: {{ required "kfp_host must be configured" .Values.kfp_host | quote }}
           volumeMounts:
           - name: "tmp-data-storage"
             mountPath: {{ .Values.local }}

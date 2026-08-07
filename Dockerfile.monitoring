@@ -16,7 +16,6 @@
 
 FROM google/cloud-sdk
 
-ARG gcloud_key
 ARG project_id
 
 # Install dependencies
@@ -33,11 +32,8 @@ RUN curl https://baltocdn.com/helm/signing.asc | apt-key add - && \
     apt-get update && apt-get install helm
 
 COPY $PWD/monitoring /script/
-COPY $gcloud_key /script/
-COPY $PWD/kfp_client_host_key.txt /script/
 
 # Set Environment variables
-ENV GOOGLE_APPLICATION_CREDENTIALS /script/$gcloud_key
 ENV PROJECT $project_id
 # ENV PYTHONUNBUFFERED=0
 

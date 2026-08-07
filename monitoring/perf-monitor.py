@@ -53,12 +53,12 @@ def get_pipeline_id(name, client):
             break
     return pl_id
 
-def get_pipeline_info(input_name, client_key):
+def get_pipeline_info(input_name, client_host):
     page_size = 200
     page_token = ''
     pipeline_runs = []
 
-    client = kfp.Client(host=client_key)
+    client = kfp.Client(host=client_host)
 
     res = client.list_runs(page_size=page_size, page_token=page_token)
     for runs in res.runs:
@@ -82,13 +82,13 @@ def get_pipeline_info(input_name, client_key):
 
     return None
 
-def trigger_kfp(pipeline_name, client_key):
+def trigger_kfp(pipeline_name, client_host):
     logging.warning("Triggering Kubeflow Pipeline...")
 
     # If pipeline is already running --> False
     # Else -> True
     try:
-        pipeline_info = get_pipeline_info(pipeline_name, client_key)
+        pipeline_info = get_pipeline_info(pipeline_name, client_host)
     except Exception as e:
         logging.error(f"Triggering pipeline error: {e}")
         return False
@@ -97,7 +97,7 @@ def trigger_kfp(pipeline_name, client_key):
 
     if pipeline_info != None:
             print("Using pipeline ID: ", pipeline_info['pipelineID'], " triggering ", pipeline_info['new_run_name'], " at: ", datetime.datetime.now())
-            client = kfp.Client(host=client_key)
+            client = kfp.Client(host=client_host)
             res = client.run_pipeline(pipeline_info['experimentID'], pipeline_info['new_run_name'], pipeline_id=pipeline_info['pipelineID'])
             return True
     else:
@@ -112,7 +112,7 @@ class AccMonitor:
         self.evaluate_period = evaluate_period
         self.pipeline_name = pipeline_name
         self.pv_location = pv_location
-        self.client_host_key = client_host
+        self.client_host = client_host
         # Thread safe Queues where each item is a request
         self.request_queue = Queue(maxsize=self.evaluate_period)
 
@@ -254,7 +254,7 @@ class AccMonitor:
 
 
             if (rolling_acc < self.acc_threshold) and (len(self.label_queue) > self.min_trigger_len):
-                success = trigger_kfp(self.pipeline_name, self.client_host_key)
+                success = trigger_kfp(self.pipeline_name, self.client_host)
                 # If the pipeline has triggered, refresh the result circular buffer,
                 # and calculate fresh metrics. Ideally we need a better mechanism to
                 # check if the pipeline is already running, then don't retrigger
@@ -332,17 +332,17 @@ if __name__ == "__main__":
                         help="Location of PV to write the files")
 
 
+    parser.add_argument("--kfp_host",
+                        type=str,
+                        required=True,
+                        help="Kubeflow Pipelines API endpoint")
+
     args = parser.parse_args()
 
     logging.basicConfig(format='%(asctime)s - %(message)s', level=logging.INFO, datefmt='%d-%m-%y %H:%M:%S')
     logging.info(f"Args: {args}")
 
     logging.info("Starting accuracy monitor...")
-
-    client_host_key = None
-
-    with open('/script/kfp_client_host_key.txt','r') as f:
-        client_host_key = f.read()
 
 
     # TODO: Add better error handling, and move configs to a .json
@@ -356,6 +356,6 @@ if __name__ == "__main__":
                     min_log_length=args.min_log_length,
                     log_time_delta=args.log_time_delta,
                     pv_location=args.PV_loc,
-                    client_host=client_host_key)
+                    client_host=args.kfp_host)
 
     am.run()

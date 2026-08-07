@@ -16,7 +16,6 @@
 
 FROM google/cloud-sdk
 
-ARG gcloud_key
 
 # Install dependencies
 RUN apt-get update && \
@@ -31,6 +30,5 @@ RUN pip3 install kfp
 
 COPY $PWD/data-extraction/run_copy_merlin.sh /script/
 COPY $PWD/inference /script
-COPY $gcloud_key /script
 
 WORKDIR /script

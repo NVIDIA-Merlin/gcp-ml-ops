@@ -27,7 +27,6 @@ cp -r /script $PV_LOC
 cd $PV_LOC
 echo $PV_LOC
 
-gcloud auth activate-service-account --key-file=/script/gcloud_key.json
 gcloud container clusters get-credentials $cluster --zone $zone --project $PROJECT
 gcloud config set project $PROJECT
 

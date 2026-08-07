@@ -1,0 +1,4 @@
+.git
+gcloud_key.json
+kfp_client_host_key.txt
+**/*service-account*.json

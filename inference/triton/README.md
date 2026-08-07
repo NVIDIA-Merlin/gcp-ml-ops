@@ -106,48 +106,21 @@ $ gsutil cp -r docs/examples/model_repository gs://triton-inference-server-repos
 
 ### GCS Permissions
 
-Make sure the bucket permissions are set so that the inference server
-can access the model repository. If the bucket is public then no
-additional changes are needed and you can proceed to "Deploy
-Prometheus and Grafana" section.
+Use GKE Workload Identity Federation rather than a downloaded service
+account key. Bind the Kubernetes service account selected by
+`serviceAccountName` to a least-privileged Google service account and
+grant that identity read access only to the model repository objects it
+needs.
 
-If bucket premissions need to be set with the
-GOOGLE_APPLICATION_CREDENTIALS environment variable then perform the
-following steps:
-
-* Generate Google service account JSON with proper permissions called
-  *gcp-creds.json*.
-
-* Create a Kubernetes secret from *gcp-creds.json*:
+For example, after creating and binding the `mlops-workload` Kubernetes
+service account, select it when installing the chart:
 
 ```
-  $ kubectl create configmap gcpcreds --from-literal "project-id=myproject"
-  $ kubectl create secret generic gcpcreds --from-file gcp-creds.json
+$ helm install triton . --set serviceAccountName=mlops-workload
 ```
 
-* Modify templates/deployment.yaml to include the
-  GOOGLE_APPLICATION_CREDENTIALS environment variable:
-
-```
-    env:
-      - name: GOOGLE_APPLICATION_CREDENTIALS
-        value: /secret/gcp-creds.json
-```
-
-* Modify templates/deployment.yaml to mount the secret in a volume at
-  /secret:
-
-```
-    volumeMounts:
-      - name: vsecret
-        mountPath: "/secret"
-        readOnly: true
-    ...
-    volumes:
-    - name: vsecret
-      secret:
-        secretName: gcpcreds
-```
+Do not make the model bucket public and do not place cloud credential
+files in the chart, pod, or container image.
 
 ## Deploy Prometheus and Grafana
 
