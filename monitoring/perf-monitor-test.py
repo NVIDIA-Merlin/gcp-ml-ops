@@ -13,6 +13,8 @@
 # limitations under the License.
 # ==============================================================================
 
+import datetime
+import uuid
 import numpy as np
 import os
 import logging
@@ -37,8 +39,14 @@ from google.pubsub_v1.types import Encoding
 
 
 
-def publish_batch(project_id, topic_id, current_batch, pred_label):
-    # Initialize a Publisher client.
+def publish_batch(
+    project_id,
+    topic_id,
+    current_batch,
+    pred_label,
+    model_name,
+    model_version,
+):
     client = pubsub_v1.PublisherClient()
     topic_path = client.topic_path(project_id, topic_id)
 
@@ -47,18 +55,31 @@ def publish_batch(project_id, topic_id, current_batch, pred_label):
 
     for i in range(batch_size):
         row = df.iloc[i]
+        predicted_value = float(np.asarray(pred_label[i]).reshape(-1)[0])
 
         frame = {
-            "input0": row[CONTINUOUS_COLUMNS].values.tolist(),
-            "input1": row[CATEGORICAL_COLUMNS].values.tolist(),
-            "trueval": row['label'],
-            "predval": response.as_numpy("OUTPUT0")[i].astype('float64')
+            "schema_version": 1,
+            "event_id": str(uuid.uuid4()),
+            "event_time": datetime.datetime.now(
+                datetime.timezone.utc
+            ).isoformat().replace("+00:00", "Z"),
+            "model_name": model_name,
+            "model_version": model_version,
+            "input0": [
+                float(value) for value in row[CONTINUOUS_COLUMNS].values.tolist()
+            ],
+            "input1": [
+                int(value) for value in row[CATEGORICAL_COLUMNS].values.tolist()
+            ],
+            "trueval": int(row["label"]),
+            "predval": predicted_value,
         }
 
-        payload = json.dumps(frame).encode('utf-8')
-
-        # When you publish a message, the client returns a future.
-        api_future = client.publish(topic_path, data=''.encode(), payload=payload)
+        payload = json.dumps(
+            frame, allow_nan=False, separators=(",", ":")
+        ).encode("utf-8")
+        api_future = client.publish(topic_path, data=payload)
+        api_future.result(timeout=30)
 
 
 if __name__ == "__main__":
@@ -71,6 +92,12 @@ if __name__ == "__main__":
                         required=False,
                         default='localhost:8001',
                         help='URL to Triton gRPC Endpoint')
+
+    parser.add_argument("--model_version",
+                        type=str,
+                        required=False,
+                        default="current",
+                        help="Version identifier included with each event")
 
     parser.add_argument('-m',
                         '--model_name',
@@ -177,8 +204,13 @@ if __name__ == "__main__":
 
             results.extend(response.as_numpy("OUTPUT0"))
 
-            publish_batch(args.project_id, args.topic_id,
-                        current_batch,
-                        response.as_numpy("OUTPUT0"))
+            publish_batch(
+                args.project_id,
+                args.topic_id,
+                current_batch,
+                response.as_numpy("OUTPUT0"),
+                args.model_name,
+                args.model_version,
+            )
 
     logging.info(f"ROC AUC Score: {metrics.roc_auc_score(all_batches[LABEL_COLUMNS].values.tolist(), results)}")

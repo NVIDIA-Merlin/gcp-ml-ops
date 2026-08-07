@@ -47,6 +47,7 @@ def merlin_pipeline(
   new_data_collection: str = 'new_data',
   do_data_validation: str = 'False',
   pubsub_sub_id: str = 'mlops-test-sub',
+  pubsub_topic_id: str = 'mlops-test',
   triton_image: str = '',
   cluster: str = 'merlin-mlops',
   kfp_host: str = '',
@@ -97,7 +98,7 @@ def merlin_pipeline(
       name="data-monitoring",
       image=args.monitor_container,
       command=["bash" , "/script/run_monitoring.sh"],
-      arguments=[project_id, args.monitor_container, pipeline_name, gcs_bucket_head, new_data_collection, "{}{}{}".format(local_data_dir,"/",new_data_collection), pubsub_sub_id, kfp_host, workload_service_account, cluster, zone]
+      arguments=[project_id, args.monitor_container, pipeline_name, gcs_bucket_head, new_data_collection, "{}{}{}".format(local_data_dir,"/",new_data_collection), pubsub_sub_id, pubsub_topic_id, kfp_host, workload_service_account, cluster, zone]
     ).set_gpu_limit(1).add_node_selector_constraint('cloud.google.com/gke-accelerator', accelerator).add_node_selector_constraint('cloud.google.com/gke-nodepool', node_pool)
 
 

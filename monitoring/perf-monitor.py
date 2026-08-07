@@ -15,13 +15,12 @@
 
 import os
 import logging
-from time import time, sleep
+from time import monotonic, sleep
 from queue import Queue
-from threading import Thread
+from threading import Lock, Thread
 
 import argparse
 from google.cloud import pubsub_v1
-import json
 import collections
 
 from sklearn import metrics
@@ -30,6 +29,12 @@ import numpy as np
 
 import kfp
 import datetime
+
+from message_validation import (
+    PayloadValidationError,
+    validate_payload,
+    validate_publish_time,
+)
 
 # logging.basicConfig(level=logging.INFO,
 #                     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -106,34 +111,89 @@ def trigger_kfp(pipeline_name, client_host):
 
 
 class AccMonitor:
-    def __init__(self, project_id, subscription_id, timeout, evaluate_period=500,
-                    acc_threshold=0.5, min_trigger_len=0.5, pipeline_name='merlin-pipeline',
-                    min_log_length=320, log_time_delta=60,pv_location='/var/lib/data/', client_host=None):
+    def __init__(
+        self,
+        project_id,
+        expected_model_name,
+        subscription_id,
+        topic_id,
+        timeout,
+        evaluate_period=500,
+        acc_threshold=0.5,
+        min_trigger_len=0.5,
+        pipeline_name="merlin-pipeline",
+        min_log_length=320,
+        log_time_delta=60,
+        pv_location="/var/lib/data/",
+        client_host=None,
+        max_event_age_seconds=300,
+        max_future_skew_seconds=60,
+        trigger_cooldown_seconds=3600,
+        max_seen_event_ids=10000,
+    ):
         self.evaluate_period = evaluate_period
         self.pipeline_name = pipeline_name
         self.pv_location = pv_location
         self.client_host = client_host
-        # Thread safe Queues where each item is a request
         self.request_queue = Queue(maxsize=self.evaluate_period)
 
         self.project_id = project_id
+        self.expected_model_name = expected_model_name
         self.subscription_id = subscription_id
+        self.topic_id = topic_id
+        self.expected_topic_path = f"projects/{project_id}/topics/{topic_id}"
         self.timeout = timeout
         self.acc_threshold = acc_threshold
+        self.max_event_age_seconds = max_event_age_seconds
+        self.max_future_skew_seconds = max_future_skew_seconds
+        self.trigger_cooldown_seconds = trigger_cooldown_seconds
+        self.last_trigger_attempt_time = None
 
-        # Mininum number of results in the circular buffer to initiate a monitoring based trigger
+        self.max_seen_event_ids = max_seen_event_ids
+        self.seen_event_ids = collections.OrderedDict()
+        self.seen_event_ids_lock = Lock()
+
         self.min_trigger_len = min_trigger_len * self.evaluate_period
-        # print("Min trigger length", self.min_trigger_len)
-
-        # Logging configs
         self.min_log_length = min_log_length
         self.log_time_delta = datetime.timedelta(seconds=log_time_delta)
 
-        # Circular buffer to store results in a rolling manner
         self.label_queue = collections.deque(maxlen=self.evaluate_period)
         self.pred_queue = collections.deque(maxlen=self.evaluate_period)
 
+    def _verify_subscription_topic(self):
+        subscriber_client = pubsub_v1.SubscriberClient()
+        subscription_path = subscriber_client.subscription_path(
+            self.project_id, self.subscription_id
+        )
+        try:
+            subscription = subscriber_client.get_subscription(
+                request={"subscription": subscription_path}
+            )
+        finally:
+            subscriber_client.close()
+
+        if subscription.topic != self.expected_topic_path:
+            raise RuntimeError(
+                "configured subscription is not attached to the expected topic"
+            )
+        return subscription_path
+
+    def _remember_event(self, event_id):
+        with self.seen_event_ids_lock:
+            if event_id in self.seen_event_ids:
+                self.seen_event_ids.move_to_end(event_id)
+                return False
+            self.seen_event_ids[event_id] = None
+            if len(self.seen_event_ids) > self.max_seen_event_ids:
+                self.seen_event_ids.popitem(last=False)
+            return True
+
+    def _forget_event(self, event_id):
+        with self.seen_event_ids_lock:
+            self.seen_event_ids.pop(event_id, None)
+
     def run(self):
+        subscription_path = self._verify_subscription_topic()
 
         def enqueue_request(self):
             """
@@ -147,26 +207,54 @@ class AccMonitor:
             # Initialize a Subscriber client
             subscriber_client = pubsub_v1.SubscriberClient()
 
-            # Create a fully qualified identifier in the form of
-            # `projects/{project_id}/subscriptions/{subscription_id}`
-            subscription_path = subscriber_client.subscription_path(self.project_id, self.subscription_id)
-
             def callback(message):
-                # Acknowledge the message. Unack'ed messages will be redelivered.
+                now = datetime.datetime.now(datetime.timezone.utc)
+                try:
+                    validate_publish_time(
+                        message.publish_time,
+                        now=now,
+                        max_age_seconds=self.max_event_age_seconds,
+                        max_future_skew_seconds=self.max_future_skew_seconds,
+                    )
+                    payload = validate_payload(
+                        message.data,
+                        now=now,
+                        max_event_age_seconds=self.max_event_age_seconds,
+                        max_future_skew_seconds=self.max_future_skew_seconds,
+                        expected_model_name=self.expected_model_name,
+                    )
+                except PayloadValidationError as error:
+                    logging.warning(
+                        "Rejecting Pub/Sub message %s: %s",
+                        message.message_id,
+                        error,
+                    )
+                    message.ack()
+                    return
+
+                event_id = payload["event_id"]
+                if not self._remember_event(event_id):
+                    logging.info("Ignoring duplicate event %s", event_id)
+                    message.ack()
+                    return
+
+                try:
+                    self.request_queue.put(payload)
+                except Exception:
+                    self._forget_event(event_id)
+                    message.nack()
+                    logging.exception(
+                        "Could not queue Pub/Sub message %s", message.message_id
+                    )
+                    return
+
                 message.ack()
-                # print("JSON of message:", json.loads(message.attributes))
-                # print(f"Acknowledged {message.message_id}.")
 
-                payload = json.loads(message.attributes['payload'])
-
-                # If the queue at it's max size, this blocks until items are consumed
-                # In case the dequeuing thread is slower, then this will block
-                # from recieving more messages from the broker. The broker should
-                # still have those messages so that they dont get lost.
-                self.request_queue.put(payload)
-
+            flow_control = pubsub_v1.types.FlowControl(
+                max_messages=self.evaluate_period
+            )
             streaming_pull_future = subscriber_client.subscribe(
-                subscription_path, callback=callback
+                subscription_path, callback=callback, flow_control=flow_control
             )
             logging.info(f"Listening for messages on {subscription_path}..\n")
 
@@ -174,7 +262,10 @@ class AccMonitor:
                 # Calling result() on StreamingPullFuture keeps the main thread from
                 # exiting while messages get processed in the callbacks.
                 streaming_pull_future.result(timeout=self.timeout)
-            except:
+            except Exception:
+                logging.exception(
+                    "Pub/Sub receive loop stopped for %s", subscription_path
+                )
                 streaming_pull_future.cancel()
 
             subscriber_client.close()
@@ -215,13 +306,14 @@ class AccMonitor:
             # Fetch the payload
             payload = self.request_queue.get()
 
-            # TODO: put checks for payload
             request = np.concatenate((np.array([payload["trueval"]], float),
                                       np.array(payload["input0"]),
                                       np.array(payload["input1"])))
 
             # Append new request to the dataframe
-            df_temp = df_temp.append(pd.DataFrame([request], columns=col_names))
+            df_temp = pd.concat(
+                [df_temp, pd.DataFrame([request], columns=col_names)], ignore_index=True
+            )
 
             # Write to a file if there are a minimum number of samples available,
             # and if a minimum amount of time has passed since last write
@@ -253,16 +345,30 @@ class AccMonitor:
                 pass
 
 
-            if (rolling_acc < self.acc_threshold) and (len(self.label_queue) > self.min_trigger_len):
+            if (rolling_acc < self.acc_threshold) and (
+                len(self.label_queue) > self.min_trigger_len
+            ):
+                current_monotonic_time = monotonic()
+                if (
+                    self.last_trigger_attempt_time is not None
+                    and current_monotonic_time - self.last_trigger_attempt_time
+                    < self.trigger_cooldown_seconds
+                ):
+                    remaining_seconds = self.trigger_cooldown_seconds - (
+                        current_monotonic_time - self.last_trigger_attempt_time
+                    )
+                    logging.info(
+                        "Retraining cooldown active for another %.0f seconds",
+                        remaining_seconds,
+                    )
+                    continue
+
+                self.last_trigger_attempt_time = current_monotonic_time
                 success = trigger_kfp(self.pipeline_name, self.client_host)
-                # If the pipeline has triggered, refresh the result circular buffer,
-                # and calculate fresh metrics. Ideally we need a better mechanism to
-                # check if the pipeline is already running, then don't retrigger
-                if success == True:
+                if success:
                     self.label_queue.clear()
                     self.pred_queue.clear()
                     rolling_acc = 1.0
-                    sleep(5)
 
 
 if __name__ == "__main__":
@@ -281,6 +387,15 @@ if __name__ == "__main__":
                         required=True,
                         default="sub_id",
                         help="Pub/Sub subscription ID")
+    parser.add_argument("--topic_id",
+                        type=str,
+                        required=True,
+                        help="Expected Pub/Sub topic ID")
+
+    parser.add_argument("--expected_model_name",
+                        type=str,
+                        required=True,
+                        help="Only accept events for this model")
 
     parser.add_argument("--timeout",
                         type=int,
@@ -337,7 +452,39 @@ if __name__ == "__main__":
                         required=True,
                         help="Kubeflow Pipelines API endpoint")
 
+    parser.add_argument("--max_event_age_seconds",
+                        type=int,
+                        default=300,
+                        help="Maximum accepted event and publish age")
+
+    parser.add_argument("--max_future_skew_seconds",
+                        type=int,
+                        default=60,
+                        help="Maximum accepted clock skew into the future")
+
+    parser.add_argument("--trigger_cooldown_seconds",
+                        type=int,
+                        default=3600,
+                        help="Minimum time between retraining trigger attempts")
+
     args = parser.parse_args()
+
+    if args.evaluate_period < 2:
+        parser.error("--evaluate_period must be at least 2")
+    if not 0 < args.min_trigger_len <= 1:
+        parser.error("--min_trigger_len must be greater than 0 and at most 1")
+    if not 0 <= args.acc_threshold <= 1:
+        parser.error("--acc_threshold must be between 0 and 1")
+    if args.min_log_length < 1:
+        parser.error("--min_log_length must be positive")
+    if args.log_time_delta < 0:
+        parser.error("--log_time_delta cannot be negative")
+    if args.max_event_age_seconds < 1:
+        parser.error("--max_event_age_seconds must be positive")
+    if args.max_future_skew_seconds < 0:
+        parser.error("--max_future_skew_seconds cannot be negative")
+    if args.trigger_cooldown_seconds < 0:
+        parser.error("--trigger_cooldown_seconds cannot be negative")
 
     logging.basicConfig(format='%(asctime)s - %(message)s', level=logging.INFO, datefmt='%d-%m-%y %H:%M:%S')
     logging.info(f"Args: {args}")
@@ -345,17 +492,21 @@ if __name__ == "__main__":
     logging.info("Starting accuracy monitor...")
 
 
-    # TODO: Add better error handling, and move configs to a .json
     am = AccMonitor(project_id=args.project_id,
                     subscription_id=args.subscription_id,
                     timeout=args.timeout,
                     evaluate_period=args.evaluate_period,
                     acc_threshold=args.acc_threshold,
+                    topic_id=args.topic_id,
                     min_trigger_len=args.min_trigger_len,
                     pipeline_name=args.pipeline_name,
                     min_log_length=args.min_log_length,
                     log_time_delta=args.log_time_delta,
                     pv_location=args.PV_loc,
-                    client_host=args.kfp_host)
+                    expected_model_name=args.expected_model_name,
+                    client_host=args.kfp_host,
+                    max_event_age_seconds=args.max_event_age_seconds,
+                    max_future_skew_seconds=args.max_future_skew_seconds,
+                    trigger_cooldown_seconds=args.trigger_cooldown_seconds)
 
     am.run()

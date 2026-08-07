@@ -31,5 +31,8 @@ gcs_bucket: "criteo-data"
 bucket_path: "new_data"
 local: "/var/lib/data/new_data"
 pubsub: "mlops-test-sub"
+pubsub_topic: "mlops-test"
+trigger_cooldown_seconds: 3600
+expected_model_name: "dcn_ens"
 kfp_host: ""
 serviceAccountName: "mlops-workload"
