@@ -18,15 +18,21 @@ FROM nvcr.io/nvidia/merlin/merlin-training:0.5.1
 
 
 RUN apt-get update && \
-    apt-get install -y python3-pip vim curl 
+    apt-get install -y python3-pip vim curl ca-certificates gnupg
 
 RUN curl https://baltocdn.com/helm/signing.asc | apt-key add - && \
     apt-get install apt-transport-https --yes && \
     echo "deb https://baltocdn.com/helm/stable/debian/ all main" | tee /etc/apt/sources.list.d/helm-stable-debian.list && \
     apt-get update && apt-get install helm
 
-RUN curl -sSL https://sdk.cloud.google.com | bash
-ENV PATH $PATH:/root/google-cloud-sdk/bin
+RUN curl -fsSLo /tmp/cloud.google.gpg https://packages.cloud.google.com/apt/doc/apt-key.gpg && \
+    gpg --batch --yes --dearmor --output /usr/share/keyrings/cloud.google.gpg /tmp/cloud.google.gpg && \
+    rm /tmp/cloud.google.gpg && \
+    echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] https://packages.cloud.google.com/apt cloud-sdk main" > /etc/apt/sources.list.d/google-cloud-sdk.list && \
+    apt-get update && \
+    apt-get install -y --no-install-recommends google-cloud-cli && \
+    rm -rf /var/lib/apt/lists/*
+
 
 COPY $PWD/preprocess-train /script
 
