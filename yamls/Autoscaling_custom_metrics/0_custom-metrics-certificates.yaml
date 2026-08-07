@@ -1,0 +1,59 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: custom-metrics
+---
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: custom-metrics-selfsigned
+  namespace: custom-metrics
+spec:
+  selfSigned: {}
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: custom-metrics-root-ca
+  namespace: custom-metrics
+spec:
+  isCA: true
+  commonName: custom-metrics-root-ca
+  secretName: custom-metrics-root-ca
+  privateKey:
+    algorithm: ECDSA
+    size: 256
+  issuerRef:
+    name: custom-metrics-selfsigned
+    kind: Issuer
+---
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: custom-metrics-ca
+  namespace: custom-metrics
+spec:
+  ca:
+    secretName: custom-metrics-root-ca
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: custom-metrics-serving-cert
+  namespace: custom-metrics
+spec:
+  secretName: custom-metrics-serving-cert
+  duration: 2160h
+  renewBefore: 360h
+  dnsNames:
+  - api.custom-metrics.svc
+  - api.custom-metrics.svc.cluster.local
+  privateKey:
+    algorithm: ECDSA
+    size: 256
+    rotationPolicy: Always
+  usages:
+  - server auth
+  issuerRef:
+    name: custom-metrics-ca
+    kind: Issuer

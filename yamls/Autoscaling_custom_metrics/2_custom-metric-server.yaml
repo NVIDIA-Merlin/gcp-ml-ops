@@ -31,22 +31,61 @@ spec:
       labels:
         app: custom-metrics-apiserver
     spec:
+      serviceAccountName: custom-metrics-apiserver
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
       containers:
       - name: custom-metrics-server
         image: directxman12/k8s-prometheus-adapter-amd64@sha256:33f37046134371b5a9ba5799aa5ff3a72d69372f1361724d8fe89d87cda55a25
         args:
-        #- --prometheus-url=http://kube-prometheus-stack-1616-prometheus:9090
-        - --prometheus-url=http://10.4.6.5:9090
+        - --prometheus-url=https://prometheus-operated.monitoring.svc.cluster.local:9090
+        - --prometheus-ca-file=/var/run/prometheus-ca/ca.crt
         - --metrics-relist-interval=30s
-        - --v=10
+        - --secure-port=6443
+        - --tls-cert-file=/var/run/serving-cert/tls.crt
+        - --tls-private-key-file=/var/run/serving-cert/tls.key
+        - --tls-min-version=VersionTLS12
+        - --profiling=false
+        - --v=4
         - --config=/etc/config/adapter-config.yaml
         ports:
-        - containerPort: 443
+        - name: https
+          containerPort: 6443
+        readinessProbe:
+          httpGet:
+            path: /readyz
+            port: https
+            scheme: HTTPS
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        livenessProbe:
+          httpGet:
+            path: /livez
+            port: https
+            scheme: HTTPS
+          initialDelaySeconds: 15
+          periodSeconds: 20
         volumeMounts:
         - name: config-volume
           mountPath: /etc/config
+          readOnly: true
+        - name: serving-cert
+          mountPath: /var/run/serving-cert
+          readOnly: true
+        - name: prometheus-ca
+          mountPath: /var/run/prometheus-ca
+          readOnly: true
         securityContext:
-          runAsUser: 0
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+            - ALL
       volumes:
       - name: config-volume
         configMap:
@@ -54,6 +93,14 @@ spec:
           items:
           - key: adapter-config-data
             path: adapter-config.yaml
+      - name: serving-cert
+        secret:
+          secretName: custom-metrics-serving-cert
+          defaultMode: 0440
+      - name: prometheus-ca
+        configMap:
+          name: prometheus-client-ca
+          defaultMode: 0440
 
 ---
 apiVersion: v1
@@ -66,14 +113,16 @@ spec:
     app: custom-metrics-apiserver
   ports:
   - port: 443
-    targetPort: 443
+    targetPort: https
 ---
 apiVersion: apiregistration.k8s.io/v1
 kind: APIService
 metadata:
   name: v1beta1.custom.metrics.k8s.io
+  annotations:
+    cert-manager.io/inject-ca-from: custom-metrics/custom-metrics-serving-cert
 spec:
-  insecureSkipTLSVerify: true
+  insecureSkipTLSVerify: false
   group: custom.metrics.k8s.io
   groupPriorityMinimum: 1000
   versionPriority: 5
