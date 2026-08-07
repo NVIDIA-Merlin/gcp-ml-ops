@@ -227,17 +227,17 @@ $ helm install --name example -f config.yaml .
 ## Using Triton Inference Server
 
 Now that the inference server is running you can send HTTP or GRPC
-requests to it to perform inferencing. By default, the inferencing
-service is exposed with a LoadBalancer service type. Use the following
-to find the external IP for the inference server. In this case it is
-34.83.9.133.
+requests to it to perform inferencing. By default, the inference
+service is private to the cluster. Forward the HTTP and GRPC ports to
+localhost for administrative or development access:
 
 ```
-$ kubectl get services
-NAME                             TYPE           CLUSTER-IP     EXTERNAL-IP   PORT(S)                                        AGE
-...
-example-triton-inference-server  LoadBalancer   10.18.13.28    34.83.9.133   8000:30249/TCP,8001:30068/TCP,8002:32723/TCP   47m
+$ kubectl port-forward service/example-triton-inference-server 8000:8000 8001:8001
 ```
+
+For access from outside the cluster, configure an ingress or gateway
+that provides TLS and authenticates clients. Do not expose the service
+directly as a public `LoadBalancer`.
 
 The inference server exposes an HTTP endpoint on port 8000, and GRPC
 endpoint on port 8001 and a Prometheus metrics endpoint on
@@ -245,7 +245,7 @@ port 8002. You can use curl to get the meta-data of the inference server
 from the HTTP endpoint.
 
 ```
-$ curl 34.83.9.133:8000/v2
+$ curl localhost:8000/v2
 ```
 
 Follow the [QuickStart](../../docs/quickstart.md) to get the example
@@ -254,7 +254,7 @@ using image classification models being served by the inference
 server. For example,
 
 ```
-$ image_client -u 34.83.9.133:8000 -m inception_graphdef -s INCEPTION -c3 mug.jpg
+$ image_client -u localhost:8000 -m inception_graphdef -s INCEPTION -c3 mug.jpg
 Request 0, batch size 1
 Image 'images/mug.jpg':
     504 (COFFEE MUG) = 0.723992

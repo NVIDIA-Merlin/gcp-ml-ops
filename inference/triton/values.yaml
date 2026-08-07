@@ -35,4 +35,6 @@ image:
   numGpus: 1
 
 service:
-  type: LoadBalancer
+  # Keep inference and metrics private by default. For external access,
+  # place an authenticated TLS ingress in front of this service.
+  type: ClusterIP
